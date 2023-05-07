@@ -9,7 +9,7 @@ fn main() -> eframe::Result<()> {
 
     let native_options = eframe::NativeOptions::default();
     eframe::run_native(
-        "eframe template",
+        "Space Traders",
         native_options,
         Box::new(|cc| Box::new(space_traders::TemplateApp::new(cc))),
     )
