@@ -1,6 +1,9 @@
+use dotenv::dotenv;
+use std::env;
 /// We derive Deserialize/Serialize so we can persist app state on shutdown.
 #[derive(serde::Deserialize, serde::Serialize)]
 #[serde(default)] // if we add new fields, give them default values when deserializing old state
+
 pub struct TemplateApp {
     // Example stuff:
     label: String,
@@ -9,16 +12,18 @@ pub struct TemplateApp {
     #[serde(skip)]
     value: f32,
 
+    #[serde(skip)]
     user_token: String,
 }
 
 impl Default for TemplateApp {
     fn default() -> Self {
+        dotenv().ok(); // Loads the .env file
         Self {
             // Example stuff:
-            label: "Hello World!".to_owned(),
+            label: "Sup!".to_owned(),
             value: 2.7,
-            user_token: "Nothing".to_owned(),
+            user_token: env::var("ACCOUNT_TOKEN").expect("ACCOUNT_TOKEN environement variable not set."),
         }
     }
 }
@@ -48,7 +53,7 @@ impl eframe::App for TemplateApp {
     /// Called each time the UI needs repainting, which may be many times per second.
     /// Put your widgets into a `SidePanel`, `TopPanel`, `CentralPanel`, `Window` or `Area`.
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        let Self { label, value, user_token } = self;
+        let Self { label, value, user_token} = self;
 
         // Examples of how to create different panels and windows.
         // Pick whichever suits you.
@@ -100,7 +105,7 @@ impl eframe::App for TemplateApp {
 
             ui.heading("eframe template");
             // TODO: Fix this deferencing error.
-            // ui.label(user_token);
+            ui.label(user_token.clone());
             ui.hyperlink("https://github.com/emilk/eframe_template");
             ui.add(egui::github_link_file!(
                 "https://github.com/emilk/eframe_template/blob/master/",

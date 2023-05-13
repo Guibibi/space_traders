@@ -1,17 +1,17 @@
 #![warn(clippy::all, rust_2018_idioms)]
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")] // hide console window on Windows in release
 
-use dotenv::dotenv;
-use std::env;
+
 
 // When compiling natively:
 #[cfg(not(target_arch = "wasm32"))]
 fn main() -> eframe::Result<()> {
-        dotenv().ok(); // Loads the .env file
+    dotenv().ok(); // Loads the .env file
     // Log to stdout (if you run with `RUST_LOG=debug`).
     tracing_subscriber::fmt::init();
 
     let user_token: String = env::var("ACCOUNT_TOKEN").expect("ACCOUNT_TOKEN environement variable not set.");
+    println!("{:?}", user_token);
     let native_options = eframe::NativeOptions::default();
     eframe::run_native(
         "Space Traders",
