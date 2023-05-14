@@ -38,6 +38,9 @@ pub struct TemplateApp {
 
     #[serde(skip)]
     receiver: mpsc::Receiver<Box<Agent>>,
+
+    #[serde(skip)]
+    agent: Option<Box<Agent>>,
 }
 
 
@@ -65,6 +68,7 @@ impl Default for TemplateApp {
                 .unwrap(),
             sender,
             receiver,
+            agent: None,
         }
     }
 }
@@ -94,12 +98,18 @@ impl eframe::App for TemplateApp {
     /// Called each time the UI needs repainting, which may be many times per second.
     /// Put your widgets into a `SidePanel`, `TopPanel`, `CentralPanel`, `Window` or `Area`.
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        let Self { label, value, client, rt, sender, receiver} = self;
-
+        let Self { label, value, client, rt, sender, receiver, agent} = self;
         // Examples of how to create different panels and windows.
         // Pick whichever suits you.
         // Tip: a good default choice is to just keep the `CentralPanel`.
         // For inspiration and more examples, go to https://emilk.github.io/egui
+
+        match receiver.try_recv() {
+            Ok(new_agent) => {
+                *agent = Option::Some(new_agent);
+            },
+            Err(e) => println!("Error: {}", e),
+        }
 
         #[cfg(not(target_arch = "wasm32"))] // no File->Quit on web pages!
         egui::TopBottomPanel::top("top_panel").show(ctx, |ui| {
@@ -129,14 +139,10 @@ impl eframe::App for TemplateApp {
             //TODO: FIX THIS
             if ui.button("Get agent").clicked() {
                 let new_client = client.clone();
-                rt.spawn(get_my_agent(new_client, sender.clone()));
-
-                match receiver.try_recv() {
-                    Ok(agent) => println!("Agent: {:?}", agent),
-                    Err(e) => println!("Error: {}", e),
-                }
+                rt.spawn(get_my_agent(new_client, sender.clone()));                
             }
-
+            
+            ui.label(format!("Agent: {:?}", agent));
             ui.with_layout(egui::Layout::bottom_up(egui::Align::LEFT), |ui| {
                 ui.horizontal(|ui| {
                     ui.spacing_mut().item_spacing.x = 0.0;
