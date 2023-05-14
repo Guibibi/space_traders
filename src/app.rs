@@ -1,19 +1,9 @@
 use dotenv::dotenv;
-use space_traders_api::{apis::configuration::{Configuration}, models::{Agent}};
+use space_traders_api::{apis::configuration::Configuration, models::Agent};
 use std::{env, sync::mpsc::{self, Sender}};
 use tokio::runtime;
 
 const PPP: f32 = 1.25;
-
-async fn get_my_agent(client: Configuration, sender: Sender<Messages>) {
-    let request = space_traders_api::apis::agents_api::get_my_agent(&client);
-    let response = request.await.unwrap();
-    match sender.send(Messages::Agent((response.data))) {
-        Ok(_) => println!("Sent"),
-        Err(e) => println!("Error: {}", e),
-    }
-    
-}
 
 enum Messages {
     Agent(Box<Agent>),
@@ -96,11 +86,12 @@ impl eframe::App for TemplateApp {
 
         match receiver.try_recv() {
             Ok(Messages::Agent(new_agent)) => {
-                *agent = Option::Some(new_agent);
+                *agent = Some(new_agent);
             },
-            Err(e) => println!("Error: {}", e),
+            Err(_) => {},
         }
 
+        //NOTE: Example for a menu bar
         // #[cfg(not(target_arch = "wasm32"))] // no File->Quit on web pages!
         // egui::TopBottomPanel::top("top_panel").show(ctx, |ui| {
         //     // The top panel is often a good place for a menu bar:
@@ -116,9 +107,27 @@ impl eframe::App for TemplateApp {
         egui::SidePanel::left("side_panel").show(ctx, |ui| {
             ui.heading("Agent Information");
 
-            if ui.button("Get agent").clicked() {
+            // TODO: Reactivate this
+            // if ui.button("Get agent").clicked() {
+            //     let new_client = client.clone();
+            //     rt.spawn(get_my_agent(new_client, sender.clone()));                
+            // }
+
+            if ui.button("Get Agent").clicked() {
                 let new_client = client.clone();
-                rt.spawn(get_my_agent(new_client, sender.clone()));                
+                let new_sender: Sender<Messages> = sender.clone();
+                rt.spawn(async move {
+                    //let request = space_traders_api::apis::systems_api::get_waypoint(configuration, system_symbol, waypoint_symbol)
+                    //let request = space_traders_api::apis::locations_api::get_locations(&new_client);
+                    let request = space_traders_api::apis::agents_api::get_my_agent(&new_client);
+                    let response = request.await;
+                    println!("{:?}", response);
+                    let new_agent = response.unwrap();
+                    match new_sender.send(Messages::Agent(new_agent.data)) {
+                        Ok(_) => println!("Sent"),
+                        Err(_) => {},
+                    }
+                });
             }
 
             ui.vertical(|ui| {
