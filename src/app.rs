@@ -1,5 +1,18 @@
 use dotenv::dotenv;
-use std::env;
+use space_traders_api::apis::configuration::{Configuration, ApiKey};
+use std::{env, thread};
+use tokio::runtime;
+
+const PPP: f32 = 1.25;
+
+async fn get_my_agent(client: &Configuration) {
+    print!("Test2");
+    let client = Configuration::new();
+    let request = space_traders_api::apis::agents_api::get_my_agent(&client);
+    let response = request.await.unwrap();
+    println!("{:?}", response);
+}
+
 /// We derive Deserialize/Serialize so we can persist app state on shutdown.
 #[derive(serde::Deserialize, serde::Serialize)]
 #[serde(default)] // if we add new fields, give them default values when deserializing old state
@@ -13,17 +26,32 @@ pub struct TemplateApp {
     value: f32,
 
     #[serde(skip)]
-    user_token: String,
+    client: Configuration,
+
+    #[serde(skip)]
+    rt: runtime::Runtime,
 }
+
+
 
 impl Default for TemplateApp {
     fn default() -> Self {
         dotenv().ok(); // Loads the .env file
+        let user_token = env::var("ACCOUNT_TOKEN").expect("ACCOUNT_TOKEN environement variable not set.");
+        let mut client: space_traders_api::apis::configuration::Configuration = space_traders_api::apis::configuration::Configuration::new();
+        client.api_key = Option::Some(ApiKey {
+            prefix: None,
+            key: user_token,
+        });
         Self {
             // Example stuff:
             label: "Sup!".to_owned(),
             value: 2.7,
-            user_token: env::var("ACCOUNT_TOKEN").expect("ACCOUNT_TOKEN environement variable not set."),
+            client,
+            rt: runtime::Builder::new_multi_thread()
+                .enable_all()
+                .build()
+                .unwrap(),
         }
     }
 }
@@ -33,7 +61,7 @@ impl TemplateApp {
     pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
         // This is also where you can customize the look and feel of egui using
         // `cc.egui_ctx.set_visuals` and `cc.egui_ctx.set_fonts`.
-
+        cc.egui_ctx.set_pixels_per_point(PPP);
         // Load previous app state (if any).
         // Note that you must enable the `persistence` feature for this to work.
         if let Some(storage) = cc.storage {
@@ -53,7 +81,7 @@ impl eframe::App for TemplateApp {
     /// Called each time the UI needs repainting, which may be many times per second.
     /// Put your widgets into a `SidePanel`, `TopPanel`, `CentralPanel`, `Window` or `Area`.
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        let Self { label, value, user_token} = self;
+        let Self { label, value, client, rt} = self;
 
         // Examples of how to create different panels and windows.
         // Pick whichever suits you.
@@ -85,6 +113,13 @@ impl eframe::App for TemplateApp {
                 *value += 1.0;
             }
 
+            if ui.button("Get agent").clicked() {
+
+                let new_client = client.clone();
+                rt.spawn(get_my_agent(&new_client));
+                
+            }
+
             ui.with_layout(egui::Layout::bottom_up(egui::Align::LEFT), |ui| {
                 ui.horizontal(|ui| {
                     ui.spacing_mut().item_spacing.x = 0.0;
@@ -105,7 +140,6 @@ impl eframe::App for TemplateApp {
 
             ui.heading("eframe template");
             // TODO: Fix this deferencing error.
-            ui.label(user_token.clone());
             ui.hyperlink("https://github.com/emilk/eframe_template");
             ui.add(egui::github_link_file!(
                 "https://github.com/emilk/eframe_template/blob/master/",
