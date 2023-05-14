@@ -20,13 +20,6 @@ async fn get_my_agent(client: Configuration, sender: Sender<Box<Agent>>) {
 #[serde(default)] // if we add new fields, give them default values when deserializing old state
 
 pub struct TemplateApp {
-    // Example stuff:
-    label: String,
-
-    // this how you opt-out of serialization of a member
-    #[serde(skip)]
-    value: f32,
-
     #[serde(skip)]
     client: Configuration,
 
@@ -50,17 +43,10 @@ impl Default for TemplateApp {
         dotenv().ok(); // Loads the .env file
         let user_token = env::var("ACCOUNT_TOKEN").expect("ACCOUNT_TOKEN environement variable not set.");
         let mut client: space_traders_api::apis::configuration::Configuration = space_traders_api::apis::configuration::Configuration::new();
-        // client.api_key = Option::Some(ApiKey {
-        //     prefix: None,
-        //     key: user_token,
-        // });
         client.bearer_access_token = Option::Some(user_token);
 
         let (sender, receiver) = mpsc::channel();
         Self {
-            // Example stuff:
-            label: "Sup!".to_owned(),
-            value: 2.7,
             client,
             rt: runtime::Builder::new_multi_thread()
                 .enable_all()
@@ -98,7 +84,7 @@ impl eframe::App for TemplateApp {
     /// Called each time the UI needs repainting, which may be many times per second.
     /// Put your widgets into a `SidePanel`, `TopPanel`, `CentralPanel`, `Window` or `Area`.
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        let Self { label, value, client, rt, sender, receiver, agent} = self;
+        let Self { client, rt, sender, receiver, agent} = self;
         // Examples of how to create different panels and windows.
         // Pick whichever suits you.
         // Tip: a good default choice is to just keep the `CentralPanel`.
@@ -111,32 +97,21 @@ impl eframe::App for TemplateApp {
             Err(e) => println!("Error: {}", e),
         }
 
-        #[cfg(not(target_arch = "wasm32"))] // no File->Quit on web pages!
-        egui::TopBottomPanel::top("top_panel").show(ctx, |ui| {
-            // The top panel is often a good place for a menu bar:
-            egui::menu::bar(ui, |ui| {
-                ui.menu_button("File", |ui| {
-                    if ui.button("Quit").clicked() {
-                        _frame.close();
-                    }
-                });
-            });
-        });
+        // #[cfg(not(target_arch = "wasm32"))] // no File->Quit on web pages!
+        // egui::TopBottomPanel::top("top_panel").show(ctx, |ui| {
+        //     // The top panel is often a good place for a menu bar:
+        //     egui::menu::bar(ui, |ui| {
+        //         ui.menu_button("File", |ui| {
+        //             if ui.button("Quit").clicked() {
+        //                 _frame.close();
+        //             }
+        //         });
+        //     });
+        // });
 
         egui::SidePanel::left("side_panel").show(ctx, |ui| {
-            ui.heading("Side Panel");
+            ui.heading("Agent Information");
 
-            ui.horizontal(|ui| {
-                ui.label("Write something: ");
-                ui.text_edit_singleline(label);
-            });
-
-            ui.add(egui::Slider::new(value, 0.0..=10.0).text("value"));
-            if ui.button("Increment").clicked() {
-                *value += 1.0;
-            }
-
-            //TODO: FIX THIS
             if ui.button("Get agent").clicked() {
                 let new_client = client.clone();
                 rt.spawn(get_my_agent(new_client, sender.clone()));                
@@ -155,20 +130,21 @@ impl eframe::App for TemplateApp {
                     }
                 }
             });
-            
-            ui.with_layout(egui::Layout::bottom_up(egui::Align::LEFT), |ui| {
-                ui.horizontal(|ui| {
-                    ui.spacing_mut().item_spacing.x = 0.0;
-                    ui.label("powered by ");
-                    ui.hyperlink_to("egui", "https://github.com/emilk/egui");
-                    ui.label(" and ");
-                    ui.hyperlink_to(
-                        "eframe",
-                        "https://github.com/emilk/egui/tree/master/crates/eframe",
-                    );
-                    ui.label(".");
-                });
-            });
+
+            // Layout example:
+            // ui.with_layout(egui::Layout::bottom_up(egui::Align::LEFT), |ui| {
+            //     ui.horizontal(|ui| {
+            //         ui.spacing_mut().item_spacing.x = 0.0;
+            //         ui.label("powered by ");
+            //         ui.hyperlink_to("egui", "https://github.com/emilk/egui");
+            //         ui.label(" and ");
+            //         ui.hyperlink_to(
+            //             "eframe",
+            //             "https://github.com/emilk/egui/tree/master/crates/eframe",
+            //         );
+            //         ui.label(".");
+            //     });
+            // });
         });
 
         egui::CentralPanel::default().show(ctx, |ui| {
