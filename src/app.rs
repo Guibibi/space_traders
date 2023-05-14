@@ -1,6 +1,6 @@
 use dotenv::dotenv;
-use space_traders_api::{apis::configuration::{Configuration, ApiKey}, models::{GetMyAgent200Response, Agent}};
-use std::{env, thread, sync::mpsc::{self, Sender}};
+use space_traders_api::{apis::configuration::{Configuration}, models::{Agent}};
+use std::{env, sync::mpsc::{self, Sender}};
 use tokio::runtime;
 
 const PPP: f32 = 1.25;
@@ -141,8 +141,21 @@ impl eframe::App for TemplateApp {
                 let new_client = client.clone();
                 rt.spawn(get_my_agent(new_client, sender.clone()));                
             }
+
+            ui.vertical(|ui| {
+                ui.heading("Agent");
+                match agent {
+                    Some(agent) => {
+                        ui.label(format!("Username: {}", agent.symbol));
+                        ui.label(format!("Credits: {}", agent.credits));
+                        ui.label(format!("Headquarters: {}", agent.headquarters));
+                    },
+                    None => {
+                        ui.label("Please get your agent.");
+                    }
+                }
+            });
             
-            ui.label(format!("Agent: {:?}", agent));
             ui.with_layout(egui::Layout::bottom_up(egui::Align::LEFT), |ui| {
                 ui.horizontal(|ui| {
                     ui.spacing_mut().item_spacing.x = 0.0;
