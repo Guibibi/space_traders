@@ -1,16 +1,18 @@
 use dotenv::dotenv;
-use space_traders_api::apis::configuration::{Configuration, ApiKey};
-use std::{env, thread};
+use space_traders_api::{apis::configuration::{Configuration, ApiKey}, models::{GetMyAgent200Response, Agent}};
+use std::{env, thread, sync::mpsc::{self, Sender}};
 use tokio::runtime;
 
 const PPP: f32 = 1.25;
 
-async fn get_my_agent(client: &Configuration) {
-    print!("Test2");
-    let client = Configuration::new();
+async fn get_my_agent(client: Configuration, sender: Sender<Box<Agent>>) {
     let request = space_traders_api::apis::agents_api::get_my_agent(&client);
     let response = request.await.unwrap();
-    println!("{:?}", response);
+    match sender.send(response.data) {
+        Ok(_) => println!("Sent"),
+        Err(e) => println!("Error: {}", e),
+    }
+    
 }
 
 /// We derive Deserialize/Serialize so we can persist app state on shutdown.
@@ -30,6 +32,12 @@ pub struct TemplateApp {
 
     #[serde(skip)]
     rt: runtime::Runtime,
+
+    #[serde(skip)]
+    sender: mpsc::Sender<Box<Agent>>, 
+
+    #[serde(skip)]
+    receiver: mpsc::Receiver<Box<Agent>>,
 }
 
 
@@ -39,10 +47,13 @@ impl Default for TemplateApp {
         dotenv().ok(); // Loads the .env file
         let user_token = env::var("ACCOUNT_TOKEN").expect("ACCOUNT_TOKEN environement variable not set.");
         let mut client: space_traders_api::apis::configuration::Configuration = space_traders_api::apis::configuration::Configuration::new();
-        client.api_key = Option::Some(ApiKey {
-            prefix: None,
-            key: user_token,
-        });
+        // client.api_key = Option::Some(ApiKey {
+        //     prefix: None,
+        //     key: user_token,
+        // });
+        client.bearer_access_token = Option::Some(user_token);
+
+        let (sender, receiver) = mpsc::channel();
         Self {
             // Example stuff:
             label: "Sup!".to_owned(),
@@ -52,6 +63,8 @@ impl Default for TemplateApp {
                 .enable_all()
                 .build()
                 .unwrap(),
+            sender,
+            receiver,
         }
     }
 }
@@ -81,7 +94,7 @@ impl eframe::App for TemplateApp {
     /// Called each time the UI needs repainting, which may be many times per second.
     /// Put your widgets into a `SidePanel`, `TopPanel`, `CentralPanel`, `Window` or `Area`.
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        let Self { label, value, client, rt} = self;
+        let Self { label, value, client, rt, sender, receiver} = self;
 
         // Examples of how to create different panels and windows.
         // Pick whichever suits you.
@@ -113,11 +126,15 @@ impl eframe::App for TemplateApp {
                 *value += 1.0;
             }
 
+            //TODO: FIX THIS
             if ui.button("Get agent").clicked() {
-
                 let new_client = client.clone();
-                rt.spawn(get_my_agent(&new_client));
-                
+                rt.spawn(get_my_agent(new_client, sender.clone()));
+
+                match receiver.try_recv() {
+                    Ok(agent) => println!("Agent: {:?}", agent),
+                    Err(e) => println!("Error: {}", e),
+                }
             }
 
             ui.with_layout(egui::Layout::bottom_up(egui::Align::LEFT), |ui| {
