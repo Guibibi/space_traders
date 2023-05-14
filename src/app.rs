@@ -5,14 +5,18 @@ use tokio::runtime;
 
 const PPP: f32 = 1.25;
 
-async fn get_my_agent(client: Configuration, sender: Sender<Box<Agent>>) {
+async fn get_my_agent(client: Configuration, sender: Sender<Messages>) {
     let request = space_traders_api::apis::agents_api::get_my_agent(&client);
     let response = request.await.unwrap();
-    match sender.send(response.data) {
+    match sender.send(Messages::Agent((response.data))) {
         Ok(_) => println!("Sent"),
         Err(e) => println!("Error: {}", e),
     }
     
+}
+
+enum Messages {
+    Agent(Box<Agent>),
 }
 
 /// We derive Deserialize/Serialize so we can persist app state on shutdown.
@@ -27,10 +31,10 @@ pub struct TemplateApp {
     rt: runtime::Runtime,
 
     #[serde(skip)]
-    sender: mpsc::Sender<Box<Agent>>, 
+    sender: mpsc::Sender<Messages>, 
 
     #[serde(skip)]
-    receiver: mpsc::Receiver<Box<Agent>>,
+    receiver: mpsc::Receiver<Messages>,
 
     #[serde(skip)]
     agent: Option<Box<Agent>>,
@@ -91,7 +95,7 @@ impl eframe::App for TemplateApp {
         // For inspiration and more examples, go to https://emilk.github.io/egui
 
         match receiver.try_recv() {
-            Ok(new_agent) => {
+            Ok(Messages::Agent(new_agent)) => {
                 *agent = Option::Some(new_agent);
             },
             Err(e) => println!("Error: {}", e),
