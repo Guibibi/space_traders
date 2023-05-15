@@ -1,5 +1,5 @@
 use dotenv::dotenv;
-use space_traders_api::{apis::configuration::Configuration, models::Agent};
+use space_traders_api::{apis::configuration::Configuration, models::{Agent, waypoint}, models::Waypoint};
 use std::{env, sync::mpsc::{self, Sender}};
 use tokio::runtime;
 
@@ -7,6 +7,22 @@ const PPP: f32 = 1.25;
 
 enum Messages {
     Agent(Box<Agent>),
+    Waypoint(Box<Waypoint>),
+}
+
+#[derive(Debug)]
+struct Location {
+    system: String,
+    waypoint: String,
+}
+
+fn parse_waypoint(waypoint_string: String) -> Location {
+    let parts: Vec<&str> = waypoint_string.split("-").collect();
+
+    let system = format!("{}-{}", parts[0], parts[1]);
+    let waypoint = waypoint_string.clone();
+
+    Location {system, waypoint}
 }
 
 /// We derive Deserialize/Serialize so we can persist app state on shutdown.
@@ -28,6 +44,14 @@ pub struct TemplateApp {
 
     #[serde(skip)]
     agent: Option<Box<Agent>>,
+
+    // The current location(waypoint) of the agent  
+    #[serde(skip)]
+    location: Option<Box<Waypoint>>,
+
+    // The current waypoint information
+    #[serde(skip)]
+    current_waypoint: Option<Location>,
 }
 
 
@@ -49,6 +73,8 @@ impl Default for TemplateApp {
             sender,
             receiver,
             agent: None,
+            location: None,
+            current_waypoint: None,
         }
     }
 }
@@ -78,7 +104,7 @@ impl eframe::App for TemplateApp {
     /// Called each time the UI needs repainting, which may be many times per second.
     /// Put your widgets into a `SidePanel`, `TopPanel`, `CentralPanel`, `Window` or `Area`.
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        let Self { client, rt, sender, receiver, agent} = self;
+        let Self { client, rt, sender, receiver, agent, location, current_waypoint} = self;
         // Examples of how to create different panels and windows.
         // Pick whichever suits you.
         // Tip: a good default choice is to just keep the `CentralPanel`.
@@ -88,37 +114,21 @@ impl eframe::App for TemplateApp {
             Ok(Messages::Agent(new_agent)) => {
                 *agent = Some(new_agent);
             },
+            Ok(Messages::Waypoint(new_waypoint)) => {
+                *location = Some(new_waypoint);
+            },
             Err(_) => {},
         }
 
-        //NOTE: Example for a menu bar
-        // #[cfg(not(target_arch = "wasm32"))] // no File->Quit on web pages!
-        // egui::TopBottomPanel::top("top_panel").show(ctx, |ui| {
-        //     // The top panel is often a good place for a menu bar:
-        //     egui::menu::bar(ui, |ui| {
-        //         ui.menu_button("File", |ui| {
-        //             if ui.button("Quit").clicked() {
-        //                 _frame.close();
-        //             }
-        //         });
-        //     });
-        // });
-
+       
+        // Side panel
         egui::SidePanel::left("side_panel").show(ctx, |ui| {
             ui.heading("Agent Information");
-
-            // TODO: Reactivate this
-            // if ui.button("Get agent").clicked() {
-            //     let new_client = client.clone();
-            //     rt.spawn(get_my_agent(new_client, sender.clone()));                
-            // }
-
+            
             if ui.button("Get Agent").clicked() {
                 let new_client = client.clone();
                 let new_sender: Sender<Messages> = sender.clone();
                 rt.spawn(async move {
-                    //let request = space_traders_api::apis::systems_api::get_waypoint(configuration, system_symbol, waypoint_symbol)
-                    //let request = space_traders_api::apis::locations_api::get_locations(&new_client);
                     let request = space_traders_api::apis::agents_api::get_my_agent(&new_client);
                     let response = request.await;
                     println!("{:?}", response);
@@ -130,6 +140,30 @@ impl eframe::App for TemplateApp {
                 });
             }
 
+            if ui.button("Test").clicked() {
+                let waypoint = agent.clone().unwrap().headquarters;
+                let test  = parse_waypoint(waypoint);
+                println!("{:?}", test);
+            }
+
+            if ui.button("Get locations").clicked() {
+                let new_client = client.clone();
+                let new_sender: Sender<Messages> = sender.clone();
+            
+                let testo = parse_waypoint(agent.clone().unwrap().headquarters);
+                rt.spawn(async move {
+                    let request = space_traders_api::apis::systems_api::get_waypoint(&new_client, &testo.system, &testo.waypoint);
+                    let response = request.await;
+                    println!("{:?}", response);
+                    let new_location = response.unwrap();
+                    match new_sender.send(Messages::Waypoint(new_location.data)) {
+                        Ok(_) => println!("Sent"),
+                        Err(_) => {},
+                    }
+                });
+            }
+
+            // Display agent information.
             ui.vertical(|ui| {
                 ui.heading("Agent");
                 match agent {
@@ -144,20 +178,7 @@ impl eframe::App for TemplateApp {
                 }
             });
 
-            // Layout example:
-            // ui.with_layout(egui::Layout::bottom_up(egui::Align::LEFT), |ui| {
-            //     ui.horizontal(|ui| {
-            //         ui.spacing_mut().item_spacing.x = 0.0;
-            //         ui.label("powered by ");
-            //         ui.hyperlink_to("egui", "https://github.com/emilk/egui");
-            //         ui.label(" and ");
-            //         ui.hyperlink_to(
-            //             "eframe",
-            //             "https://github.com/emilk/egui/tree/master/crates/eframe",
-            //         );
-            //         ui.label(".");
-            //     });
-            // });
+          
         });
 
         egui::CentralPanel::default().show(ctx, |ui| {
@@ -183,3 +204,31 @@ impl eframe::App for TemplateApp {
         }
     }
 }
+
+  // Layout example:
+            // ui.with_layout(egui::Layout::bottom_up(egui::Align::LEFT), |ui| {
+            //     ui.horizontal(|ui| {
+            //         ui.spacing_mut().item_spacing.x = 0.0;
+            //         ui.label("powered by ");
+            //         ui.hyperlink_to("egui", "https://github.com/emilk/egui");
+            //         ui.label(" and ");
+            //         ui.hyperlink_to(
+            //             "eframe",
+            //             "https://github.com/emilk/egui/tree/master/crates/eframe",
+            //         );
+            //         ui.label(".");
+            //     });
+            // });
+
+ //NOTE: Example for a menu bar
+        // #[cfg(not(target_arch = "wasm32"))] // no File->Quit on web pages!
+        // egui::TopBottomPanel::top("top_panel").show(ctx, |ui| {
+        //     // The top panel is often a good place for a menu bar:
+        //     egui::menu::bar(ui, |ui| {
+        //         ui.menu_button("File", |ui| {
+        //             if ui.button("Quit").clicked() {
+        //                 _frame.close();
+        //             }
+        //         });
+        //     });
+        // });
