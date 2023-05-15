@@ -1,5 +1,5 @@
 use dotenv::dotenv;
-use space_traders_api::{apis::configuration::Configuration, models::{Agent, waypoint}, models::Waypoint};
+use space_traders_api::{apis::configuration::Configuration, models::{Agent}, models::Waypoint, models::Contract};
 use std::{env, sync::mpsc::{self, Sender}};
 use tokio::runtime;
 
@@ -8,6 +8,7 @@ const PPP: f32 = 1.25;
 enum Messages {
     Agent(Box<Agent>),
     Waypoint(Box<Waypoint>),
+    Contract(Box<Contract>),
 }
 
 #[derive(Debug)]
@@ -47,11 +48,14 @@ pub struct TemplateApp {
 
     // The current location(waypoint) of the agent  
     #[serde(skip)]
-    location: Option<Box<Waypoint>>,
+    current_location: Option<Box<Waypoint>>,
 
     // The current waypoint information
     #[serde(skip)]
     current_waypoint: Option<Location>,
+
+    #[serde(skip)]
+    contract: Option<Box<Contract>>,
 }
 
 
@@ -73,8 +77,9 @@ impl Default for TemplateApp {
             sender,
             receiver,
             agent: None,
-            location: None,
+            current_location: None,
             current_waypoint: None,
+            contract: None,
         }
     }
 }
@@ -104,7 +109,7 @@ impl eframe::App for TemplateApp {
     /// Called each time the UI needs repainting, which may be many times per second.
     /// Put your widgets into a `SidePanel`, `TopPanel`, `CentralPanel`, `Window` or `Area`.
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        let Self { client, rt, sender, receiver, agent, location, current_waypoint} = self;
+        let Self { client, rt, sender, receiver, agent, current_location: location, current_waypoint, contract} = self;
         // Examples of how to create different panels and windows.
         // Pick whichever suits you.
         // Tip: a good default choice is to just keep the `CentralPanel`.
@@ -117,6 +122,9 @@ impl eframe::App for TemplateApp {
             Ok(Messages::Waypoint(new_waypoint)) => {
                 *location = Some(new_waypoint);
             },
+            Ok(Messages::Contract(new_contract)) => {
+                *contract = Some(new_contract);
+            }
             Err(_) => {},
         }
 
