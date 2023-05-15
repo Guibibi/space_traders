@@ -140,12 +140,6 @@ impl eframe::App for TemplateApp {
                 });
             }
 
-            if ui.button("Test").clicked() {
-                let waypoint = agent.clone().unwrap().headquarters;
-                let test  = parse_waypoint(waypoint);
-                println!("{:?}", test);
-            }
-
             if ui.button("Get locations").clicked() {
                 let new_client = client.clone();
                 let new_sender: Sender<Messages> = sender.clone();
@@ -184,14 +178,22 @@ impl eframe::App for TemplateApp {
         egui::CentralPanel::default().show(ctx, |ui| {
             // The central panel the region left after adding TopPanel's and SidePanel's
 
-            ui.heading("eframe template");
-            // TODO: Fix this deferencing error.
-            ui.hyperlink("https://github.com/emilk/eframe_template");
-            ui.add(egui::github_link_file!(
-                "https://github.com/emilk/eframe_template/blob/master/",
-                "Source code."
-            ));
-            egui::warn_if_debug_build(ui);
+            ui.heading("Current Location");
+            match location {
+                Some(location) => {
+                    ui.label(format!("Name: {}", location.symbol));
+                    ui.label(format!("Type: {}", location.r#type.to_string()));
+                    ui.label(format!("Symbol: {}", location.symbol));
+                    ui.label(format!("Location: {}, {}", location.x, location.y));
+                    location.traits.iter().for_each(|traito| {
+                        ui.label(format!("Trait: {}", traito.name));
+                    });
+                },
+                None => {
+                    ui.label("Please get your location.");
+                }
+            }
+          
         });
 
         if false {
