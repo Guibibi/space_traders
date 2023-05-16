@@ -1,6 +1,6 @@
 use dotenv::dotenv;
 use space_traders_api::{
-    apis::configuration::Configuration, models::Agent, models::Contract, models::Waypoint,
+    apis::configuration::Configuration, models::Agent, models::{Contract, ContractDeliverGood}, models::Waypoint,
 };
 use std::{
     env,
@@ -31,6 +31,29 @@ fn parse_waypoint(waypoint_string: String) -> Location {
 
     Location { system, waypoint }
 }
+
+// Take a contract list and create a contract ui card for each contract.
+fn display_contract(ui: &mut egui::Ui, contract: &Contract) {
+    ui.collapsing(format!("Contract: {}", contract.id), |ui| {
+        ui.label(format!("Type: {:?}", contract.r#type));
+        ui.label(format!("Faction Symbol: {}", contract.faction_symbol));
+        ui.separator();
+        ui.label("Terms:");
+        ui.add_space(4.0);
+        ui.label(format!("Payment on accept: {}", contract.terms.payment.on_accepted));
+        ui.label(format!("Payment on fullfilled: {}", contract.terms.payment.on_fulfilled));
+        ui.label(format!("Deadline: {}", contract.terms.deadline));
+        ui.label(format!("Accepted?: {}", contract.accepted));
+        ui.label(format!("Fullfilled?: {}", contract.fulfilled));
+        ui.label(format!("Expiration: {}", contract.expiration));
+        ui.label("Delivery:");
+        ui.add_space(4.0);
+        contract.terms.deliver.iter().for_each(|item| {
+            ui.label(format!("Test: {:?}", item));
+        })
+    });
+}
+
 
 /// We derive Deserialize/Serialize so we can persist app state on shutdown.
 #[derive(serde::Deserialize, serde::Serialize)]
@@ -273,9 +296,12 @@ impl eframe::App for TemplateApp {
 
             ui.add_space(10.0);
 
-            contracts_list.iter().for_each(|item| {
-                ui.label(format!("{}", ))
-            })
+            if let Some(contracts) = &contracts_list {
+                contracts.iter().for_each(|item| {
+                    
+                    display_contract(ui, item.into())
+                }
+            )}
 
         });
 
@@ -289,4 +315,3 @@ impl eframe::App for TemplateApp {
         }
     }
 }
-
