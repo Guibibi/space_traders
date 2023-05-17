@@ -1,6 +1,9 @@
 use dotenv::dotenv;
 use space_traders_api::{
-    apis::configuration::Configuration, models::Agent, models::{Contract, ContractDeliverGood}, models::Waypoint,
+    apis::configuration::Configuration,
+    models::Agent,
+    models::Waypoint,
+    models::{Contract, ContractDeliverGood},
 };
 use std::{
     env,
@@ -23,7 +26,6 @@ struct Location {
     waypoint: String,
 }
 
-
 fn parse_waypoint(waypoint_string: String) -> Location {
     let parts: Vec<&str> = waypoint_string.split("-").collect();
 
@@ -42,8 +44,14 @@ fn display_contract(ui: &mut egui::Ui, contract: &Contract) {
         ui.separator();
         ui.label("Terms:");
         ui.add_space(4.0);
-        ui.label(format!("Payment on accept: {}", contract.terms.payment.on_accepted));
-        ui.label(format!("Payment on fullfilled: {}", contract.terms.payment.on_fulfilled));
+        ui.label(format!(
+            "Payment on accept: {}",
+            contract.terms.payment.on_accepted
+        ));
+        ui.label(format!(
+            "Payment on fullfilled: {}",
+            contract.terms.payment.on_fulfilled
+        ));
         ui.label(format!("Deadline: {}", contract.terms.deadline));
         ui.label(format!("Accepted?: {}", contract.accepted));
         ui.label(format!("Fullfilled?: {}", contract.fulfilled));
@@ -63,7 +71,6 @@ fn display_contract(ui: &mut egui::Ui, contract: &Contract) {
         // }
     });
 }
-
 
 /// We derive Deserialize/Serialize so we can persist app state on shutdown.
 #[derive(serde::Deserialize, serde::Serialize)]
@@ -309,9 +316,8 @@ impl eframe::App for TemplateApp {
             if let Some(contracts) = &contracts_list {
                 contracts.iter().for_each(|item| {
                     display_contract(ui, item.into());
-                }
-            )};
-
+                })
+            };
         });
 
         // if false {
