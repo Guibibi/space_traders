@@ -23,6 +23,7 @@ struct Location {
     waypoint: String,
 }
 
+
 fn parse_waypoint(waypoint_string: String) -> Location {
     let parts: Vec<&str> = waypoint_string.split("-").collect();
 
@@ -33,6 +34,7 @@ fn parse_waypoint(waypoint_string: String) -> Location {
 }
 
 // Take a contract list and create a contract ui card for each contract.
+// TODO: Fix the double loop??
 fn display_contract(ui: &mut egui::Ui, contract: &Contract) {
     ui.collapsing(format!("Contract: {}", contract.id), |ui| {
         ui.label(format!("Type: {:?}", contract.r#type));
@@ -48,9 +50,17 @@ fn display_contract(ui: &mut egui::Ui, contract: &Contract) {
         ui.label(format!("Expiration: {}", contract.expiration));
         ui.label("Delivery:");
         ui.add_space(4.0);
-        contract.terms.deliver.iter().for_each(|item| {
-            ui.label(format!("Test: {:?}", item));
-        })
+        contract.terms.deliver.iter().for_each(|item_loop| {
+            item_loop.iter().for_each(|item| {
+                ui.label(format!("Trade Symbol: {}", item.trade_symbol));
+                ui.label(format!("Destination Symbol: {}", item.destination_symbol));
+                ui.label(format!("Units required: {}", item.units_required));
+                ui.label(format!("Units fulfilled: {}", item.units_fulfilled));
+            })
+        });
+        // if ui.button("Accept Contract").clicked() {
+        //     space_traders_api::apis::contracts_api::accept_contract(configuration, contract_id)
+        // }
     });
 }
 
@@ -298,20 +308,19 @@ impl eframe::App for TemplateApp {
 
             if let Some(contracts) = &contracts_list {
                 contracts.iter().for_each(|item| {
-                    
-                    display_contract(ui, item.into())
+                    display_contract(ui, item.into());
                 }
-            )}
+            )};
 
         });
 
-        if false {
-            egui::Window::new("Window").show(ctx, |ui| {
-                ui.label("Windows can be moved by dragging them.");
-                ui.label("They are automatically sized based on contents.");
-                ui.label("You can turn on resizing and scrolling if you like.");
-                ui.label("You would normally choose either panels OR windows.");
-            });
-        }
+        // if false {
+        //     egui::Window::new("Window").show(ctx, |ui| {
+        //         ui.label("Windows can be moved by dragging them.");
+        //         ui.label("They are automatically sized based on contents.");
+        //         ui.label("You can turn on resizing and scrolling if you like.");
+        //         ui.label("You would normally choose either panels OR windows.");
+        //     });
+        // }
     }
 }
