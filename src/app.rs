@@ -1,3 +1,5 @@
+mod space_traders_service;
+
 use dotenv::dotenv;
 use space_traders_api::{
     apis::configuration::Configuration,
@@ -11,10 +13,13 @@ use std::{
 };
 use tokio::runtime;
 
+use self::space_traders_service::SpaceTradersService;
+
 const PPP: f32 = 1.25;
 
+
 enum Messages {
-    Agent(Box<Agent>),
+    Agent(Agent),
     Waypoint(Box<Waypoint>),
     Contract(Box<Contract>),
     ContractsList(Vec<Contract>),
@@ -90,7 +95,7 @@ pub struct TemplateApp {
     receiver: mpsc::Receiver<Messages>,
 
     #[serde(skip)]
-    agent: Option<Box<Agent>>,
+    agent: Option<Agent>,
 
     // The current location(waypoint) of the agent
     #[serde(skip)]
@@ -151,6 +156,8 @@ impl TemplateApp {
 }
 
 impl eframe::App for TemplateApp {
+
+
     /// Called by the frame work to save state before shutdown.
     fn save(&mut self, storage: &mut dyn eframe::Storage) {
         eframe::set_value(storage, eframe::APP_KEY, self);
@@ -170,6 +177,7 @@ impl eframe::App for TemplateApp {
             contract,
             contracts_list,
         } = self;
+        let api_service: SpaceTradersService = SpaceTradersService::new();
         // For inspiration and more examples, go to https://emilk.github.io/egui
 
         match receiver.try_recv() {
@@ -195,15 +203,10 @@ impl eframe::App for TemplateApp {
                 ui.heading("Agent Information");
 
                 if ui.button("Get Agent").clicked() {
-                    let new_client = client.clone();
                     let new_sender: Sender<Messages> = sender.clone();
                     rt.spawn(async move {
-                        let request =
-                            space_traders_api::apis::agents_api::get_my_agent(&new_client);
-                        let response = request.await;
-                        println!("{:?}", response);
-                        let new_agent = response.unwrap();
-                        match new_sender.send(Messages::Agent(new_agent.data)) {
+                        let new_agent = api_service.get_agent().await.unwrap();
+                        match new_sender.send(Messages::Agent(new_agent)) {
                             Ok(_) => println!("Sent"),
                             Err(_) => {}
                         }
@@ -240,7 +243,7 @@ impl eframe::App for TemplateApp {
                             &headquarters.system,
                             &headquarters.waypoint,
                         );
-                        let response = request.await;
+                        let response: Result<space_traders_api::models::GetWaypoint200Response, space_traders_api::apis::Error<space_traders_api::apis::systems_api::GetWaypointError>> = request.await;
                         println!("{:?}", response);
                         let new_location = response.unwrap();
                         match new_sender.send(Messages::Waypoint(new_location.data)) {
